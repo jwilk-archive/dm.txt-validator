@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+
+import argparse
+import io
+import re
+import gzip
+
+import apt_pkg
+import collections
+
+def extract_name(s):
+    s = s.split('<')[0].strip()
+    s = s.split('(')[0].strip()
+    return s
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('dm', metavar='<dm.txt>')
+    ap.add_argument('sources', metavar='<sources>', nargs='+')
+    options = ap.parse_args()
+    maintinfo = collections.defaultdict(set)
+    for path in options.sources:
+        if path.endswith('.gz'):
+            file = gzip.open(path)
+        else:
+            file = open(path, 'rb')
+        with file:
+            text_file = io.TextIOWrapper(file, encoding='UTF-8')
+            for para in apt_pkg.TagFile(text_file):
+                pkgname = para['package']
+                maintainer = extract_name(para['maintainer'])
+                maintinfo[pkgname].add(maintainer)
+                for maintainer in re.split('(?<=>)\s*,\s*', para.get('uploaders', '')):
+                    maintainer = extract_name(maintainer)
+                    if maintainer:
+                        maintinfo[pkgname].add(maintainer)
+    with open(options.dm, 'rt', encoding='UTF-8') as file:
+        for para in apt_pkg.TagFile(file):
+            allowed_maintainer = extract_name(para['uid'])
+            for package in para['allow'].splitlines():
+                pkgname = package.split()[0]
+                if not maintinfo[pkgname]:
+                    print('{pkg}: no such package'.format(pkg=pkgname))
+                    print()
+                elif allowed_maintainer not in maintinfo[pkgname]:
+                    print('{pkg}: not maintained by {maint}'.format(maint=allowed_maintainer, pkg=pkgname))
+                    for maintainer in maintinfo[pkgname]:
+                        print('- {maint}'.format(maint=maintainer))
+                    print()
+
+if __name__ == '__main__':
+    main()
+
+# vim:ts=4 sw=4 et
