@@ -30,7 +30,7 @@ def main():
                 pkgname = para['package']
                 maintainer = extract_name(para['maintainer'])
                 maintinfo[pkgname].add(maintainer)
-                for maintainer in re.split('(?<=>)\s*,\s*', para.get('uploaders', '')):
+                for maintainer in re.split(r'(?<=>)\s*,\s*', para.get('uploaders', '')):
                     maintainer = extract_name(maintainer)
                     if maintainer:
                         maintinfo[pkgname].add(maintainer)
